@@ -117,17 +117,17 @@ class FizzyClient {
   async createCard(
     boardId: string,
     title: string,
-    body?: string
+    description?: string
   ): Promise<FizzyCard> {
     return this.request<FizzyCard>(`/boards/${boardId}/cards`, {
       method: "POST",
-      body: JSON.stringify({ card: { title, body } }),
+      body: JSON.stringify({ card: { title, description } }),
     });
   }
 
   async updateCard(
     cardId: string,
-    updates: { title?: string; body?: string }
+    updates: { title?: string; description?: string }
   ): Promise<FizzyCard> {
     return this.request<FizzyCard>(`/cards/${cardId}`, {
       method: "PATCH",
@@ -257,9 +257,9 @@ const TOOLS: Tool[] = [
           type: "string",
           description: "Title of the card",
         },
-        body: {
+        description: {
           type: "string",
-          description: "Optional body/description of the card (supports HTML)",
+          description: "Optional description of the card (supports HTML with links)",
         },
       },
       required: ["board_id", "title"],
@@ -279,9 +279,9 @@ const TOOLS: Tool[] = [
           type: "string",
           description: "New title for the card",
         },
-        body: {
+        description: {
           type: "string",
-          description: "New body/description for the card",
+          description: "New description for the card (supports HTML with links)",
         },
       },
       required: ["card_id"],
@@ -411,14 +411,14 @@ async function main() {
           result = await client.createCard(
             args?.board_id as string,
             args?.title as string,
-            args?.body as string | undefined
+            args?.description as string | undefined
           );
           break;
 
         case "fizzy_update_card":
           result = await client.updateCard(args?.card_id as string, {
             title: args?.title as string | undefined,
-            body: args?.body as string | undefined,
+            description: args?.description as string | undefined,
           });
           break;
 
