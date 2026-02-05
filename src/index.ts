@@ -8,7 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 // Environment configuration
-const FIZZY_URL = process.env.FIZZY_URL || "http://localhost:3000";
+const FIZZY_URL = process.env.FIZZY_URL || "http://localhost:3737";
 const FIZZY_TOKEN = process.env.FIZZY_TOKEN || "";
 const FIZZY_ACCOUNT_ID = process.env.FIZZY_ACCOUNT_ID || "1";
 
