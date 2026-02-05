@@ -45,6 +45,47 @@ interface FizzyComment {
   created_at: string;
 }
 
+function validateToolArgs<T extends Record<string, any>>(
+  args: unknown,
+  schema: Record<string, 'string' | 'string?'>,
+  toolName: string
+): T {
+  if (!args || typeof args !== 'object') {
+    throw new Error(`Tool '${toolName}' requires arguments object`);
+  }
+
+  const validated = {} as T;
+  const missing: string[] = [];
+  const wrongType: string[] = [];
+
+  for (const [field, expectedType] of Object.entries(schema)) {
+    const isOptional = expectedType.endsWith('?');
+    const baseType = isOptional ? expectedType.slice(0, -1) : expectedType;
+    const value = (args as Record<string, any>)[field];
+
+    if (value === undefined || value === null) {
+      if (!isOptional) missing.push(field);
+      continue;
+    }
+
+    if (typeof value !== baseType) {
+      wrongType.push(`${field} (expected ${baseType}, got ${typeof value})`);
+      continue;
+    }
+
+    (validated as any)[field] = value;
+  }
+
+  if (missing.length > 0 || wrongType.length > 0) {
+    let message = `Tool '${toolName}' validation failed:`;
+    if (missing.length > 0) message += ` Missing: ${missing.join(', ')}.`;
+    if (wrongType.length > 0) message += ` Wrong type: ${wrongType.join(', ')}.`;
+    throw new Error(message);
+  }
+
+  return validated;
+}
+
 // API client for Fizzy
 class FizzyClient {
   private baseUrl: string;
@@ -55,6 +96,17 @@ class FizzyClient {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;
     this.accountId = accountId;
+  }
+
+  private validateId(id: string, paramName: string): void {
+    if (!id || typeof id !== "string") {
+      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+    }
+    
+    const idPattern = /^[a-zA-Z0-9]+$/;
+    if (!idPattern.test(id)) {
+      throw new Error(`Invalid ${paramName}: "${id}" contains invalid characters. Only alphanumeric characters are allowed.`);
+    }
   }
 
   private async request<T>(
@@ -112,6 +164,7 @@ class FizzyClient {
   }
 
   async getBoard(boardId: string): Promise<FizzyBoard> {
+    this.validateId(boardId, "boardId");
     return this.request<FizzyBoard>(`/boards/${boardId}`);
   }
 
@@ -124,10 +177,12 @@ class FizzyClient {
 
   // Cards
   async listCards(boardId: string): Promise<FizzyCard[]> {
+    this.validateId(boardId, "boardId");
     return this.request<FizzyCard[]>(`/boards/${boardId}/cards`);
   }
 
   async getCard(cardId: string): Promise<FizzyCard> {
+    this.validateId(cardId, "cardId");
     return this.request<FizzyCard>(`/cards/${cardId}`);
   }
 
@@ -136,6 +191,7 @@ class FizzyClient {
     title: string,
     description?: string
   ): Promise<FizzyCard> {
+    this.validateId(boardId, "boardId");
     return this.request<FizzyCard>(`/boards/${boardId}/cards`, {
       method: "POST",
       body: JSON.stringify({ card: { title, description } }),
@@ -146,6 +202,7 @@ class FizzyClient {
     cardId: string,
     updates: { title?: string; description?: string }
   ): Promise<FizzyCard> {
+    this.validateId(cardId, "cardId");
     return this.request<FizzyCard>(`/cards/${cardId}`, {
       method: "PATCH",
       body: JSON.stringify({ card: updates }),
@@ -153,6 +210,8 @@ class FizzyClient {
   }
 
   async moveCardToColumn(cardId: string, columnId: string): Promise<void> {
+    this.validateId(cardId, "cardId");
+    this.validateId(columnId, "columnId");
     await this.request(`/cards/${cardId}/column`, {
       method: "PATCH",
       body: JSON.stringify({ column_id: columnId }),
@@ -160,12 +219,14 @@ class FizzyClient {
   }
 
   async moveCardToDone(cardId: string): Promise<void> {
+    this.validateId(cardId, "cardId");
     await this.request(`/cards/${cardId}/closure`, {
       method: "POST",
     });
   }
 
   async moveCardToNotNow(cardId: string): Promise<void> {
+    this.validateId(cardId, "cardId");
     await this.request(`/cards/${cardId}/not_now`, {
       method: "POST",
     });
@@ -173,15 +234,18 @@ class FizzyClient {
 
   // Columns
   async listColumns(boardId: string): Promise<FizzyColumn[]> {
+    this.validateId(boardId, "boardId");
     return this.request<FizzyColumn[]>(`/boards/${boardId}/columns`);
   }
 
   // Comments
   async listComments(cardId: string): Promise<FizzyComment[]> {
+    this.validateId(cardId, "cardId");
     return this.request<FizzyComment[]>(`/cards/${cardId}/comments`);
   }
 
   async addComment(cardId: string, body: string): Promise<FizzyComment> {
+    this.validateId(cardId, "cardId");
     return this.request<FizzyComment>(`/cards/${cardId}/comments`, {
       method: "POST",
       body: JSON.stringify({ comment: { body } }),
@@ -405,67 +469,75 @@ async function main() {
           result = await client.listBoards();
           break;
 
-        case "fizzy_get_board":
-          result = await client.getBoard(args?.board_id as string);
-          break;
-
-        case "fizzy_create_board":
-          result = await client.createBoard(
-            args?.name as string,
-            args?.description as string | undefined
-          );
-          break;
-
-        case "fizzy_list_cards":
-          result = await client.listCards(args?.board_id as string);
-          break;
-
-        case "fizzy_get_card":
-          result = await client.getCard(args?.card_id as string);
-          break;
-
-        case "fizzy_create_card":
-          result = await client.createCard(
-            args?.board_id as string,
-            args?.title as string,
-            args?.description as string | undefined
-          );
-          break;
-
-        case "fizzy_update_card":
-          result = await client.updateCard(args?.card_id as string, {
-            title: args?.title as string | undefined,
-            description: args?.description as string | undefined,
-          });
-          break;
-
-        case "fizzy_move_card": {
-          const column = args?.column as string;
-          if (column === "done") {
-            await client.moveCardToDone(args?.card_id as string);
-          } else if (column === "not_now") {
-            await client.moveCardToNotNow(args?.card_id as string);
-          } else {
-            await client.moveCardToColumn(args?.card_id as string, column);
-          }
-          result = { success: true, message: `Card moved to ${column}` };
+        case "fizzy_get_board": {
+          const v = validateToolArgs<{ board_id: string }>(args, { board_id: 'string' }, name);
+          result = await client.getBoard(v.board_id);
           break;
         }
 
-        case "fizzy_list_columns":
-          result = await client.listColumns(args?.board_id as string);
+        case "fizzy_create_board": {
+          const v = validateToolArgs<{ name: string, description?: string }>(args, { name: 'string', description: 'string?' }, name);
+          result = await client.createBoard(v.name, v.description);
           break;
+        }
 
-        case "fizzy_add_comment":
-          result = await client.addComment(
-            args?.card_id as string,
-            args?.body as string
-          );
+        case "fizzy_list_cards": {
+          const v = validateToolArgs<{ board_id: string }>(args, { board_id: 'string' }, name);
+          result = await client.listCards(v.board_id);
           break;
+        }
 
-        case "fizzy_list_comments":
-          result = await client.listComments(args?.card_id as string);
+        case "fizzy_get_card": {
+          const v = validateToolArgs<{ card_id: string }>(args, { card_id: 'string' }, name);
+          result = await client.getCard(v.card_id);
           break;
+        }
+
+        case "fizzy_create_card": {
+          const v = validateToolArgs<{ board_id: string, title: string, description?: string }>(args, { board_id: 'string', title: 'string', description: 'string?' }, name);
+          result = await client.createCard(v.board_id, v.title, v.description);
+          break;
+        }
+
+        case "fizzy_update_card": {
+          const v = validateToolArgs<{ card_id: string, title?: string, description?: string }>(args, { card_id: 'string', title: 'string?', description: 'string?' }, name);
+          result = await client.updateCard(v.card_id, {
+            title: v.title,
+            description: v.description,
+          });
+          break;
+        }
+
+        case "fizzy_move_card": {
+          const v = validateToolArgs<{ card_id: string, column: string }>(args, { card_id: 'string', column: 'string' }, name);
+          if (v.column === "done") {
+            await client.moveCardToDone(v.card_id);
+          } else if (v.column === "not_now") {
+            await client.moveCardToNotNow(v.card_id);
+          } else {
+            await client.moveCardToColumn(v.card_id, v.column);
+          }
+          result = { success: true, message: `Card moved to ${v.column}` };
+          break;
+        }
+
+        case "fizzy_list_columns": {
+          const v = validateToolArgs<{ board_id: string }>(args, { board_id: 'string' }, name);
+          result = await client.listColumns(v.board_id);
+          break;
+        }
+
+        case "fizzy_add_comment": {
+          const v = validateToolArgs<{ card_id: string, body: string }>(args, { card_id: 'string', body: 'string' }, name);
+          result = await client.addComment(v.card_id, v.body);
+          break;
+        }
+
+        case "fizzy_list_comments": {
+          const v = validateToolArgs<{ card_id: string }>(args, { card_id: 'string' }, name);
+          result = await client.listComments(v.card_id);
+          break;
+        }
 
         default:
           throw new Error(`Unknown tool: ${name}`);
