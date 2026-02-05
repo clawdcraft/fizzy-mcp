@@ -1,52 +1,45 @@
-# Fizzy MCP Server
+# fizzy-mcp
 
 An MCP (Model Context Protocol) server for [Fizzy](https://github.com/basecamp/fizzy), Basecamp's open-source Kanban tool.
 
-## Features
+## What is MCP?
 
-- **Boards**: List, get, and create boards
-- **Cards**: List, get, create, update cards
-- **Columns**: List columns, move cards between columns
-- **Comments**: List and add comments to cards
-- **Special actions**: Move cards to "Done" or "Not Now"
+[Model Context Protocol](https://modelcontextprotocol.io/) lets AI assistants (like Claude) use external tools. This server gives Claude the ability to manage your Fizzy boards and cards.
 
-## Installation
+## Quick Start
+
+### 1. Install
 
 ```bash
+git clone https://github.com/clawdcraft/fizzy-mcp.git
+cd fizzy-mcp
 npm install
 npm run build
 ```
 
-## Configuration
+### 2. Get a Fizzy API Token
 
-Set the following environment variables:
+1. Open your Fizzy instance (e.g., `http://localhost:3737`)
+2. Click your avatar → **My profile**
+3. Go to **Access Tokens**
+4. Click **Generate a new access token**
+5. Enter a description (e.g., "MCP Server")
+6. Select **Read + Write** permission
+7. Copy the token (you won't see it again!)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `FIZZY_URL` | Base URL of your Fizzy instance | `http://localhost:3000` |
-| `FIZZY_TOKEN` | API access token (Bearer token) | *(required)* |
-| `FIZZY_ACCOUNT_ID` | Account ID in Fizzy | `1` |
+### 3. Configure Claude Desktop
 
-### Getting an API Token
-
-1. Log into your Fizzy instance
-2. Go to your profile settings
-3. Navigate to "Access Tokens"
-4. Create a new token with appropriate permissions
-
-## Usage with Claude Desktop
-
-Add to your `claude_desktop_config.json`:
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "fizzy": {
       "command": "node",
-      "args": ["/path/to/fizzy-mcp/dist/index.js"],
+      "args": ["/full/path/to/fizzy-mcp/dist/index.js"],
       "env": {
-        "FIZZY_URL": "http://localhost:3000",
-        "FIZZY_TOKEN": "your-api-token",
+        "FIZZY_URL": "http://localhost:3737",
+        "FIZZY_TOKEN": "your-api-token-here",
         "FIZZY_ACCOUNT_ID": "1"
       }
     }
@@ -54,51 +47,115 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
+Then restart Claude Desktop.
+
+### 4. Use It
+
+Ask Claude things like:
+- "List my Fizzy boards"
+- "Create a card called 'Fix login bug' on the Ravenus board"
+- "Move card 15 to Done"
+- "Add a comment to card 12"
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FIZZY_URL` | Your Fizzy instance URL | `http://localhost:3737` |
+| `FIZZY_TOKEN` | API access token | *(required)* |
+| `FIZZY_ACCOUNT_ID` | Account ID (from URL path) | `1` |
+
 ## Available Tools
 
-### Board Operations
+### Boards
 
-- **fizzy_list_boards** - List all boards
-- **fizzy_get_board** - Get board details
-- **fizzy_create_board** - Create a new board
+| Tool | Description |
+|------|-------------|
+| `fizzy_list_boards` | List all boards in the account |
+| `fizzy_get_board` | Get details of a specific board |
+| `fizzy_create_board` | Create a new board |
 
-### Card Operations
+### Cards
 
-- **fizzy_list_cards** - List cards on a board
-- **fizzy_get_card** - Get card details
-- **fizzy_create_card** - Create a new card
-- **fizzy_update_card** - Update card title/body
-- **fizzy_move_card** - Move card to column, "done", or "not_now"
+| Tool | Description |
+|------|-------------|
+| `fizzy_list_cards` | List cards on a board |
+| `fizzy_get_card` | Get card details |
+| `fizzy_create_card` | Create a new card |
+| `fizzy_update_card` | Update card title/description |
+| `fizzy_move_card` | Move to column, "done", or "not_now" |
 
-### Column Operations
+### Columns & Comments
 
-- **fizzy_list_columns** - List columns on a board
-
-### Comment Operations
-
-- **fizzy_add_comment** - Add comment to a card
-- **fizzy_list_comments** - List comments on a card
+| Tool | Description |
+|------|-------------|
+| `fizzy_list_columns` | List columns on a board |
+| `fizzy_add_comment` | Add a comment to a card |
+| `fizzy_list_comments` | List comments on a card |
 
 ## Examples
 
-### Create a card with a PRD link
+### Create a card with HTML description
 
 ```
-fizzy_create_card({
-  board_id: "abc123",
-  title: "🔧 Set up monorepo infrastructure",
-  body: "Bun monorepo with Biome linting and TypeScript.<br><br>📄 <a href='https://github.com/example/repo/blob/main/docs/PRD-01.md'>PRD-01</a>"
-})
+Create a card on board "03fjavj4afm5qrvuvluoi0po9" with:
+- Title: "🔧 Fix database connection"
+- Description with a link to the GitHub issue
 ```
 
-### Move a card to Done
+The MCP server supports HTML in descriptions:
+```html
+Fix the connection pooling issue.
+
+📄 <a href="https://github.com/example/repo/issues/42">Issue #42</a>
+```
+
+### Move cards through workflow
 
 ```
-fizzy_move_card({
-  card_id: "xyz789",
-  column: "done"
-})
+Move card 15 to "done"
+Move card 12 to "not_now"
 ```
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Watch mode
+npm run dev
+```
+
+## Testing Manually
+
+```bash
+export FIZZY_URL="http://localhost:3737"
+export FIZZY_TOKEN="your-token"
+export FIZZY_ACCOUNT_ID="1"
+
+# List tools
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/index.js
+
+# Call a tool
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fizzy_list_boards","arguments":{}}}' | node dist/index.js
+```
+
+## Troubleshooting
+
+### 406 Not Acceptable
+- Check that `FIZZY_TOKEN` is set and valid
+- Verify the token has Read + Write permissions
+
+### Connection refused
+- Ensure Fizzy is running at the configured URL
+- Check the port matches your Fizzy setup
+
+### Card not found
+- Card IDs are the card *number* (e.g., `11`), not the CUID
 
 ## License
 
