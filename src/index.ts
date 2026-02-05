@@ -78,6 +78,23 @@ class FizzyClient {
       throw new Error(`Fizzy API error (${response.status}): ${text}`);
     }
 
+    // Handle 201 Created with Location header
+    if (response.status === 201) {
+      const location = response.headers.get("Location");
+      if (location) {
+        // Extract card number from location like /1/cards/19.json
+        const match = location.match(/\/cards\/(\d+)/);
+        const cardNumber = match ? match[1] : null;
+        return { 
+          success: true, 
+          message: "Card created",
+          card_number: cardNumber,
+          location 
+        } as T;
+      }
+      return { success: true } as T;
+    }
+
     // Handle empty responses
     const text = await response.text();
     if (!text) return {} as T;
