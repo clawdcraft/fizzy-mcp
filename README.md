@@ -79,11 +79,18 @@ Ask Claude things like:
 
 | Tool | Description |
 |------|-------------|
-| `fizzy_list_cards` | List cards on a board |
+| `fizzy_list_cards` | List all cards (optionally filter by board_id) |
 | `fizzy_get_card` | Get card details |
 | `fizzy_create_card` | Create a new card |
 | `fizzy_update_card` | Update card title/description |
 | `fizzy_move_card` | Move to column, "done", or "not_now" |
+
+### Tags
+
+| Tool | Description |
+|------|-------------|
+| `fizzy_add_tag` | Add a tag to a card (creates tag if needed) |
+| `fizzy_remove_tag` | Remove a tag from a card |
 
 ### Columns & Comments
 
@@ -116,6 +123,15 @@ Fix the connection pooling issue.
 Move card 15 to "done"
 Move card 12 to "not_now"
 ```
+
+### Tag cards
+
+```
+Add tag "bug" to card 15
+Remove tag "feature" from card 12
+```
+
+Tags are created automatically if they don't exist.
 
 ## Development
 

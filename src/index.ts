@@ -176,9 +176,13 @@ class FizzyClient {
   }
 
   // Cards
-  async listCards(boardId: string): Promise<FizzyCard[]> {
-    this.validateId(boardId, "boardId");
-    return this.request<FizzyCard[]>(`/boards/${boardId}/cards`);
+  async listCards(boardId?: string): Promise<FizzyCard[]> {
+    // Cards endpoint is global; filter client-side by board if specified
+    const cards = await this.request<FizzyCard[]>(`/cards`);
+    if (boardId) {
+      return cards.filter((c: any) => c.board?.id === boardId || c.board_id === boardId);
+    }
+    return cards;
   }
 
   async getCard(cardId: string): Promise<FizzyCard> {
@@ -251,6 +255,24 @@ class FizzyClient {
       body: JSON.stringify({ comment: { body } }),
     });
   }
+
+  // Tags
+  async addTag(cardId: string, tagTitle: string): Promise<void> {
+    this.validateId(cardId, "cardId");
+    await this.request(`/cards/${cardId}/taggings`, {
+      method: "POST",
+      body: JSON.stringify({ tag_title: tagTitle }),
+    });
+  }
+
+  async removeTag(cardId: string, tagTitle: string): Promise<void> {
+    this.validateId(cardId, "cardId");
+    // toggle_tag_with removes if exists
+    await this.request(`/cards/${cardId}/taggings`, {
+      method: "POST",
+      body: JSON.stringify({ tag_title: tagTitle }),
+    });
+  }
 }
 
 // Define MCP tools
@@ -298,16 +320,16 @@ const TOOLS: Tool[] = [
   },
   {
     name: "fizzy_list_cards",
-    description: "List all cards on a Fizzy board",
+    description: "List cards. Optionally filter by board ID.",
     inputSchema: {
       type: "object",
       properties: {
         board_id: {
           type: "string",
-          description: "The ID of the board",
+          description: "Optional: filter cards by board ID",
         },
       },
-      required: ["board_id"],
+      required: [],
     },
   },
   {
@@ -428,10 +450,46 @@ const TOOLS: Tool[] = [
       properties: {
         card_id: {
           type: "string",
-          description: "The ID of the card",
+          description: "The ID or number of the card",
         },
       },
       required: ["card_id"],
+    },
+  },
+  {
+    name: "fizzy_add_tag",
+    description: "Add a tag to a card. Creates the tag if it doesn't exist.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        card_id: {
+          type: "string",
+          description: "The ID or number of the card",
+        },
+        tag: {
+          type: "string",
+          description: "Tag name to add",
+        },
+      },
+      required: ["card_id", "tag"],
+    },
+  },
+  {
+    name: "fizzy_remove_tag",
+    description: "Remove a tag from a card",
+    inputSchema: {
+      type: "object",
+      properties: {
+        card_id: {
+          type: "string",
+          description: "The ID or number of the card",
+        },
+        tag: {
+          type: "string",
+          description: "Tag name to remove",
+        },
+      },
+      required: ["card_id", "tag"],
     },
   },
 ];
@@ -482,7 +540,7 @@ async function main() {
         }
 
         case "fizzy_list_cards": {
-          const v = validateToolArgs<{ board_id: string }>(args, { board_id: 'string' }, name);
+          const v = validateToolArgs<{ board_id?: string }>(args, { board_id: 'string?' }, name);
           result = await client.listCards(v.board_id);
           break;
         }
@@ -536,6 +594,20 @@ async function main() {
         case "fizzy_list_comments": {
           const v = validateToolArgs<{ card_id: string }>(args, { card_id: 'string' }, name);
           result = await client.listComments(v.card_id);
+          break;
+        }
+
+        case "fizzy_add_tag": {
+          const v = validateToolArgs<{ card_id: string, tag: string }>(args, { card_id: 'string', tag: 'string' }, name);
+          await client.addTag(v.card_id, v.tag);
+          result = { success: true, message: `Tag '${v.tag}' added to card` };
+          break;
+        }
+
+        case "fizzy_remove_tag": {
+          const v = validateToolArgs<{ card_id: string, tag: string }>(args, { card_id: 'string', tag: 'string' }, name);
+          await client.removeTag(v.card_id, v.tag);
+          result = { success: true, message: `Tag '${v.tag}' removed from card` };
           break;
         }
 
