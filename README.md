@@ -1,4 +1,4 @@
-# fizzy-mcp
+# Fizzy-MCP
 
 An MCP (Model Context Protocol) server for [Fizzy](https://github.com/basecamp/fizzy), Basecamp's open-source Kanban tool.
 
@@ -19,7 +19,7 @@ npm run build
 
 ### 2. Get a Fizzy API Token
 
-1. Open your Fizzy instance (e.g., `http://localhost:3737`)
+1. Open your Fizzy instance (e.g., `http://localhost:3000`)
 2. Click your avatar → **My profile**
 3. Go to **Access Tokens**
 4. Click **Generate a new access token**
@@ -27,7 +27,29 @@ npm run build
 6. Select **Read + Write** permission
 7. Copy the token (you won't see it again!)
 
-### 3. Configure Claude Desktop
+### 3. Configure Your Claude Client
+
+#### Claude Code (macOS/Linux)
+
+Edit `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "fizzy": {
+      "command": "node",
+      "args": ["/full/path/to/fizzy-mcp/dist/index.js"],
+      "env": {
+        "FIZZY_URL": "http://localhost:3000",
+        "FIZZY_TOKEN": "your-api-token-here",
+        "FIZZY_ACCOUNT_ID": "1"
+      }
+    }
+  }
+}
+```
+
+#### Claude Desktop (macOS)
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -38,7 +60,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
       "command": "node",
       "args": ["/full/path/to/fizzy-mcp/dist/index.js"],
       "env": {
-        "FIZZY_URL": "http://localhost:3737",
+        "FIZZY_URL": "http://localhost:3000",
         "FIZZY_TOKEN": "your-api-token-here",
         "FIZZY_ACCOUNT_ID": "1"
       }
@@ -47,7 +69,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Then restart Claude Desktop.
+Then restart Claude.
 
 ### 4. Use It
 
@@ -61,7 +83,7 @@ Ask Claude things like:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `FIZZY_URL` | Your Fizzy instance URL | `http://localhost:3737` |
+| `FIZZY_URL` | Your Fizzy instance URL | `http://localhost:3000` |
 | `FIZZY_TOKEN` | API access token | *(required)* |
 | `FIZZY_ACCOUNT_ID` | Account ID (from URL path) | `1` |
 
@@ -149,7 +171,7 @@ npm run dev
 ## Testing Manually
 
 ```bash
-export FIZZY_URL="http://localhost:3737"
+export FIZZY_URL="http://localhost:3000"
 export FIZZY_TOKEN="your-token"
 export FIZZY_ACCOUNT_ID="1"
 
